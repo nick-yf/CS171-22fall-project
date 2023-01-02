@@ -27,12 +27,20 @@ private:
 
 class WaterSurface : public Mesh {
 public:
-    WaterSurface(int limit);
+    WaterSurface(int limit, UVec2 sizes, float dx_local);
 
+    WaterSurface(const WaterSurface &) = default;
+
+    WaterSurface(WaterSurface &&) = default;
+    void FixedUpdate() override;
 private:
-    int limitation = 0;
-    WavePacket wave_packet;
+    int limitation;
+    float dx_local;
+    UVec2 vertex_sizes;
     std::vector<Vec3> local_or_world_pos;
+    void UpdateMeshVertices();
+    size_t GetIndex(int width, int height) const;
+//    WavePacket wave_packet;
 
 };
 

@@ -68,4 +68,5 @@ class Mesh {
   void SetObject(const std::shared_ptr<Object>& new_object);
 
   friend class Scene;
+  friend class WaterSurface;
 };

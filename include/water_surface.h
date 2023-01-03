@@ -40,7 +40,7 @@ public:
 
     /// constructor
 
-    WaterSurface(int limit, UVec2 sizes, float dx_local);
+    WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_ptr<Mesh> other_mesh);
 
     WaterSurface(const WaterSurface &) = default;
 
@@ -67,9 +67,13 @@ private:
     std::vector<Vec3> water_vertices;
 
     // particles attribute
-    bool reflect = false;
+    bool reflect = true;
     float wave_speed = 1.0f;
     std::vector<WaveParticle> particles;
+    // other object
+    Vec3 velocity;
+    std::shared_ptr<Mesh> other_object;
+
     /// simulation pipeline
 
     void LocalToWorldPositions();

@@ -6,18 +6,18 @@
 #include "object.h"
 #include "transform.h"
 #include <iostream>
+#include <utility>
 
-WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::vector<MeshVertex>(sizes.x * sizes.y),
-                                                                          std::vector<UVec3>(
-                                                                                  (sizes.x - 1) * (sizes.y - 1) * 2),
-                                                                          GL_STREAM_DRAW, GL_STATIC_DRAW,
-                                                                          true),
-                                                                     limitation(limit),
-                                                                     original_positions(sizes.x * sizes.y),
-                                                                     water_vertices(sizes.x * sizes.y),
-                                                                     vertex_sizes(sizes),
-                                                                     dx_local(dx_local),
-                                                                     particles(limit) {
+WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_ptr<Mesh> other_mesh) :
+        Mesh(std::vector<MeshVertex>(sizes.x * sizes.y), std::vector<UVec3>((sizes.x - 1) * (sizes.y - 1) * 2),
+             GL_STREAM_DRAW, GL_STATIC_DRAW, true),
+        limitation(limit),
+        original_positions(sizes.x * sizes.y),
+        water_vertices(sizes.x * sizes.y),
+        vertex_sizes(sizes),
+        dx_local(dx_local),
+        particles(limit),
+        other_object(std::move(other_mesh)) {
     float local_width = sizes.x * dx_local;
     float local_height = sizes.y * dx_local;
 #pragma omp parallel for
@@ -31,7 +31,7 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::v
     original_positions = water_vertices;
 
     for (int i = 0; i < limit; ++i) {
-        Vec3 position_tmp = Vec3(-0.5f * local_width, 0, -0.5f * local_height);
+        Vec3 position_tmp = Vec3(0, 0, 0);
         Vec3 propagate_tmp = glm::normalize(
                 Vec3{1.0f,
                      0.0f,
@@ -198,13 +198,14 @@ void WaterSurface::IterateWaveParticles() {
                 temp[i].horizontal[2] = glm::normalize(glm::cross(temp[i].propagate[2], Vec3{0.0f, 1.0f, 0.0f}));
                 new_particles.push_back(temp[i]);
             }
-        } else if (particle.amplitude > 1e-3) {
+        } else if (particle.amplitude > 1e-4) {
             new_particles.push_back(particle);
         }
     }
     this->particles = new_particles;
 #pragma omp parallel for
     for (auto &particle: this->particles) {
+        particle.amplitude *= 0.99;
         particle.surviving_time +=
                 WaterSurface::fixed_delta_time * WaterSurface::simulation_steps_per_fixed_update_time;
         particle.position[0] +=
@@ -236,11 +237,21 @@ void WaterSurface::IterateWaveParticles() {
 }
 
 void WaterSurface::ComputeObjectForces() {
-
+    velocity = -gravity;
 }
 
 void WaterSurface::IterateObjects() {
-
+    Mat4 matrix = other_object->object->transform->ModelMat();
+    for (auto &vertice: other_object->vertices) {
+        Vec3 tmp = Vec3(matrix * Vec4(vertice.position, 1));
+        tmp += Time::fixed_delta_time * velocity;
+        vertice.position = Vec3(glm::inverse(matrix) * Vec4(tmp, 1));
+    }
+    glBindVertexArray(other_object->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, other_object->vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(MeshVertex) * other_object->vertices.size(), other_object->vertices.data(),
+                 other_object->buffer_data_usage_vbo);
+    glBindVertexArray(0);
 }
 
 void WaterSurface::GenerateWaveParticles() {

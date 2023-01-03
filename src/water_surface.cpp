@@ -19,6 +19,7 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::v
                                                                      dx_local(dx_local),
                                                                      particle_positions(limit),
                                                                      amplitude(limit),
+                                                                     radius(limit),
                                                                      propagate(limit),
                                                                      horizontal(limit) {
     float local_width = sizes.x * dx_local;
@@ -36,11 +37,12 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::v
     for (int i = 0; i < limit; ++i) {
         Vec3 position_tmp = Vec3(-0.5f * local_width, 0, -0.5f * local_height);
         Vec3 propagate_tmp = glm::normalize(
-                Vec3{glm::cos(i * glm::radians(90.0f) / 1000),
+                Vec3{glm::cos(i * glm::radians(90.0f) / this->limitation),
                      0.0f,
-                     glm::sin(i * glm::radians(90.0f) / 1000)});
+                     glm::sin(i * glm::radians(90.0f) / this->limitation)});
         Vec3 horizon_tmp = glm::normalize(glm::cross(propagate_tmp, Vec3{0.0f, 1.0f, 0.0f}));
         amplitude.at(i) = 0.5f;
+        radius.at(i) = 1.0f;
         particle_positions.at(i) = position_tmp;
         propagate.at(i) = propagate_tmp;
         horizontal.at(i) = horizon_tmp;
@@ -132,15 +134,13 @@ void WaterSurface::FixedUpdate() {
 }
 
 void WaterSurface::Simulate(unsigned times) {
-    for (int i = 0; i < times; ++i) {
-        LocalToWorldPositions();
-        IterateWaveParticles();
-        ComputeObjectForces();
-        IterateObjects();
-        GenerateWaveParticles();
-        RenderHeightFields();
-        WorldToLocalPositions();
-    }
+    LocalToWorldPositions();
+    IterateWaveParticles();
+    ComputeObjectForces();
+    IterateObjects();
+    GenerateWaveParticles();
+    RenderHeightFields();
+    WorldToLocalPositions();
 }
 
 void WaterSurface::LocalToWorldPositions() {
@@ -171,7 +171,7 @@ void WaterSurface::WorldToLocalPositions() {
 
 void WaterSurface::IterateWaveParticles() {
     for (int i = 0; i < this->limitation; i++) {
-        particle_positions.at(i) += wave_speed / simulation_steps_per_fixed_update_time * propagate.at(i);
+        particle_positions.at(i) += wave_speed * WaterSurface::fixed_delta_time * propagate.at(i);
     }
 }
 
@@ -188,5 +188,26 @@ void WaterSurface::GenerateWaveParticles() {
 }
 
 void WaterSurface::RenderHeightFields() {
+#pragma omp parallel for
+    for (int i = 0; i < this->original_positions.size(); ++i) {
+        float height = this->original_positions.at(i).y;
+        Vec2 x_pos = {this->original_positions.at(i).x, this->original_positions.at(i).z};
+        for (int j = 0; j < this->particle_positions.size(); ++j) {
+            Vec2 pos = {this->particle_positions.at(j).x, this->particle_positions.at(j).z};
+            float length = glm::length(x_pos - pos);
+            float a_i = this->amplitude.at(j) / 2;
+            float W_i = glm::cos(pi * length / this->radius.at(j)) + 1;
+            float B_i = rectangle_func(length / 2 / this->radius.at(j));
+            height += a_i * W_i * B_i;
+        }
+        this->water_vertices.at(i) = {x_pos.x, height, x_pos.y};
+    }
+}
 
+float WaterSurface::rectangle_func(float x) {
+    if (x >= -0.5f && x < 0.5f) {
+        return 0.5f;
+    } else {
+        return 0.0f;
+    }
 }

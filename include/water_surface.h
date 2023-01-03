@@ -57,9 +57,10 @@ private:
     std::vector<Vec3> water_vertices;
 
     // particles attribute
-    float wave_speed = 0.1f;
+    float wave_speed = 10.0f;
     std::vector<Vec3> particle_positions;
     std::vector<float> amplitude;
+    std::vector<float> radius;
     std::vector<Vec3> propagate;
     std::vector<Vec3> horizontal;
     /// simulation pipeline
@@ -87,6 +88,8 @@ private:
     /// supporting methods
 
     [[nodiscard]] size_t Get1DIndex(int iw, int ih) const;
+
+    float rectangle_func(float x);
 };
 
 #endif //CS171_HW5_WATER_SURFACE_H

@@ -8,6 +8,14 @@
 #include "mesh.h"
 #include "time_system.h"
 
+struct WaveParticle{
+    float amplitude;
+    float radius;
+    Vec3 position;
+    Vec3 propagate;
+    Vec3 horizontal;
+};
+
 class WavePacket {
 public:
 private:
@@ -58,11 +66,7 @@ private:
 
     // particles attribute
     float wave_speed = 10.0f;
-    std::vector<Vec3> particle_positions;
-    std::vector<float> amplitude;
-    std::vector<float> radius;
-    std::vector<Vec3> propagate;
-    std::vector<Vec3> horizontal;
+    std::vector<WaveParticle> particles;
     /// simulation pipeline
 
     void LocalToWorldPositions();

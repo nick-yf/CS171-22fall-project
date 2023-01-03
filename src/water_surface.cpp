@@ -17,11 +17,7 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::v
                                                                      water_vertices(sizes.x * sizes.y),
                                                                      vertex_sizes(sizes),
                                                                      dx_local(dx_local),
-                                                                     particle_positions(limit),
-                                                                     amplitude(limit),
-                                                                     radius(limit),
-                                                                     propagate(limit),
-                                                                     horizontal(limit) {
+                                                                     particles(limit) {
     float local_width = sizes.x * dx_local;
     float local_height = sizes.y * dx_local;
 #pragma omp parallel for
@@ -41,11 +37,11 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::v
                      0.0f,
                      glm::sin(i * glm::radians(90.0f) / this->limitation)});
         Vec3 horizon_tmp = glm::normalize(glm::cross(propagate_tmp, Vec3{0.0f, 1.0f, 0.0f}));
-        amplitude.at(i) = 0.5f;
-        radius.at(i) = 1.0f;
-        particle_positions.at(i) = position_tmp;
-        propagate.at(i) = propagate_tmp;
-        horizontal.at(i) = horizon_tmp;
+        this->particles.at(i).radius = 1.0f;
+        this->particles.at(i).amplitude = 0.4f;
+        this->particles.at(i).position = position_tmp;
+        this->particles.at(i).propagate = propagate_tmp;
+        this->particles.at(i).horizontal = horizon_tmp;
     }
 
     // initialize mesh vertices
@@ -146,13 +142,9 @@ void WaterSurface::Simulate(unsigned times) {
 void WaterSurface::LocalToWorldPositions() {
     auto matrix = this->object->transform->ModelMat();
 #pragma omp parallel for
-    for (Vec3 &water_vertex: this->water_vertices) {
-        Vec4 tmp = matrix * Vec4(water_vertex, 1);
-        water_vertex = Vec3(tmp);
-    }
-    for (Vec3 &original_position: this->original_positions) {
-        Vec4 tmp = matrix * Vec4(original_position, 1);
-        original_position = Vec3(tmp);
+    for (int i = 0; i < this->original_positions.size(); ++i) {
+        Vec4 tmp = matrix * Vec4(this->original_positions.at(i), 1);
+        this->water_vertices.at(i) = Vec3(tmp);
     }
 }
 
@@ -163,15 +155,11 @@ void WaterSurface::WorldToLocalPositions() {
         Vec4 tmp = glm::inverse(matrix) * Vec4(water_vertex, 1);
         water_vertex = Vec3(tmp);
     }
-    for (Vec3 &original_position: this->original_positions) {
-        Vec4 tmp = glm::inverse(matrix) * Vec4(original_position, 1);
-        original_position = Vec3(tmp);
-    }
 }
 
 void WaterSurface::IterateWaveParticles() {
     for (int i = 0; i < this->limitation; i++) {
-        particle_positions.at(i) += wave_speed * WaterSurface::fixed_delta_time * propagate.at(i);
+        this->particles.at(i).position += wave_speed * WaterSurface::fixed_delta_time * this->particles.at(i).propagate;
     }
 }
 
@@ -189,18 +177,22 @@ void WaterSurface::GenerateWaveParticles() {
 
 void WaterSurface::RenderHeightFields() {
 #pragma omp parallel for
-    for (int i = 0; i < this->original_positions.size(); ++i) {
-        float height = this->original_positions.at(i).y;
-        Vec2 x_pos = {this->original_positions.at(i).x, this->original_positions.at(i).z};
-        for (int j = 0; j < this->particle_positions.size(); ++j) {
-            Vec2 pos = {this->particle_positions.at(j).x, this->particle_positions.at(j).z};
+    for (auto &water_vertice: this->water_vertices) {
+        Vec2 x_pos = {water_vertice.x, water_vertice.z};
+        for (auto &particle: this->particles) {
+            Vec2 pos = {particle.position.x, particle.position.z};
             float length = glm::length(x_pos - pos);
-            float a_i = this->amplitude.at(j) / 2;
-            float W_i = glm::cos(pi * length / this->radius.at(j)) + 1;
-            float B_i = rectangle_func(length / 2 / this->radius.at(j));
-            height += a_i * W_i * B_i;
+            float longitude = glm::dot(particle.propagate, {(x_pos - pos).x, 0, (x_pos - pos).y});
+            float a_i = particle.amplitude / 2;
+            float W_i = glm::cos(pi * length / particle.radius) + 1;
+            float B_i = rectangle_func(length / 2 / particle.radius);
+            float D_i = a_i * W_i * B_i;
+            Vec3 L_i = -glm::sin(pi * longitude / particle.radius) * rectangle_func(longitude / 2 / particle.radius) *
+                       particle.propagate;
+            Vec3 D_iL = D_i * L_i;
+            water_vertice.y += D_i;
+            water_vertice += D_iL;
         }
-        this->water_vertices.at(i) = {x_pos.x, height, x_pos.y};
     }
 }
 

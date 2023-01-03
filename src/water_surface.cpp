@@ -17,7 +17,8 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::v
     for (int height = 0; height < sizes.y; ++height) {
         for (int width = 0; width < sizes.x; ++width) {
             local_or_world_pos.at(this->GetIndex(width, height)) = Vec3(width * dx_local - 0.5f * local_width,
-                                                                        height * dx_local - 0.5f * local_height, 0);
+                                                                        0,
+                                                                        height * dx_local - 0.5f * local_height);
         }
     }
 

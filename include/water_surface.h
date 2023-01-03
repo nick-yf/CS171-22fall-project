@@ -39,6 +39,12 @@ private:
     UVec2 vertex_sizes;
     std::vector<Vec3> local_or_world_pos;
     void UpdateMeshVertices();
+    void local_to_world();
+    void IterateWaveParticle();
+    void ComputeObjectForces();
+    void IterateObjects();
+    void GenerateWavePartcles();
+    void world_to_local();
     size_t GetIndex(int width, int height) const;
 //    WavePacket wave_packet;
 

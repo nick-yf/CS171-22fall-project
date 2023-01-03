@@ -11,7 +11,7 @@ int main() {
     constexpr int window_height = 1080;
 
     // cloth
-    constexpr UVec2 mass_dim = {128, 128};
+    constexpr UVec2 mass_dim = {50, 50};
     constexpr Float dx_local = Float(0.1);
     std::vector<IVec2> fixed_masses{{0,  -1},
                                     {-1, -1}};
@@ -80,19 +80,19 @@ int main() {
                                             Transform(Vec3(0, -3.0, 0),
                                                       Quat(1, 0, 0, 0),
                                                       Vec3(1, 1, 1)));
-        auto object_cube = scene.AddObject(mesh_cube,
-                                           Shader::shader_phong,
-                                           Transform(Vec3(-3.5, -1.5, 0.3),
-                                                     Quat(1, 0, 0, 0),
-                                                     Vec3(1, 1, 1)));
-        auto object_sphere = scene.AddObject(mesh_sphere,
-                                             Shader::shader_phong,
-                                             Transform(Vec3(0.0, -1.5, 0.0),
-                                                       Quat(1, 0, 0, 0),
-                                                       Vec3(1, 1, 1)));
+//        auto object_cube = scene.AddObject(mesh_cube,
+//                                           Shader::shader_phong,
+//                                           Transform(Vec3(-3.5, -1.5, 0.3),
+//                                                     Quat(1, 0, 0, 0),
+//                                                     Vec3(1, 1, 1)));
+//        auto object_sphere = scene.AddObject(mesh_sphere,
+//                                             Shader::shader_phong,
+//                                             Transform(Vec3(0.0, -1.5, 0.0),
+//                                                       Quat(1, 0, 0, 0),
+//                                                       Vec3(1, 1, 1)));
         object_water->color = {zero, Float(0.25), one};
-        object_cube->color = {Float(0.75), one, zero};
-        object_sphere->color = {one, Float(0.75), zero};
+//        object_cube->color = {Float(0.75), one, zero};
+//        object_sphere->color = {one, Float(0.75), zero};
 
         // loop until the user closes the window
         Input::Start(window);

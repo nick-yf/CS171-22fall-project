@@ -12,10 +12,10 @@ struct WaveParticle{
     float amplitude;
     float radius;
     float dispersion_angle;
-    Vec3 original_position;
-    Vec3 position;
-    Vec3 propagate;
-    Vec3 horizontal;
+    float surviving_time;
+    Vec3 position[3];
+    Vec3 propagate[3];
+    Vec3 horizontal[3];
 };
 
 class WavePacket {
@@ -67,8 +67,8 @@ private:
     std::vector<Vec3> water_vertices;
 
     // particles attribute
-    bool reflect = true;
-    float wave_speed = 30.0f;
+    bool reflect = false;
+    float wave_speed = 1.0f;
     std::vector<WaveParticle> particles;
     /// simulation pipeline
 

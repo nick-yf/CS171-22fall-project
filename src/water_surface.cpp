@@ -33,17 +33,27 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::v
     for (int i = 0; i < limit; ++i) {
         Vec3 position_tmp = Vec3(-0.5f * local_width, 0, -0.5f * local_height);
         Vec3 propagate_tmp = glm::normalize(
-                Vec3{glm::cos((i + 0.5f) * glm::radians(90.0f) / this->limitation),
+                Vec3{1.0f,
                      0.0f,
-                     glm::sin((i + 0.5f) * glm::radians(90.0f) / this->limitation)});
+                     1.0f});
         Vec3 horizon_tmp = glm::normalize(glm::cross(propagate_tmp, Vec3{0.0f, 1.0f, 0.0f}));
         this->particles.at(i).radius = 1.0f;
-        this->particles.at(i).amplitude = 5.0f;
-        this->particles.at(i).dispersion_angle = 90;
-        this->particles.at(i).position = position_tmp;
-        this->particles.at(i).original_position = position_tmp;
-        this->particles.at(i).propagate = propagate_tmp;
-        this->particles.at(i).horizontal = horizon_tmp;
+        this->particles.at(i).amplitude = 2.0f;
+        this->particles.at(i).dispersion_angle = 360;
+        this->particles.at(i).surviving_time = 0.0f;
+        float prop = glm::cos(glm::radians(this->particles.at(i).dispersion_angle / 3));
+        float hori = glm::sin(glm::radians(this->particles.at(i).dispersion_angle / 3));
+        this->particles.at(i).position[0] = position_tmp;
+        this->particles.at(i).position[1] = position_tmp;
+        this->particles.at(i).position[2] = position_tmp;
+        this->particles.at(i).propagate[0] = propagate_tmp;
+        this->particles.at(i).propagate[1] = prop * propagate_tmp + hori * horizon_tmp;
+        this->particles.at(i).propagate[2] = prop * propagate_tmp - hori * horizon_tmp;
+        this->particles.at(i).horizontal[0] = horizon_tmp;
+        this->particles.at(i).horizontal[1] = glm::normalize(
+                glm::cross(this->particles.at(i).propagate[1], Vec3{0.0f, 1.0f, 0.0f}));
+        this->particles.at(i).horizontal[2] = glm::normalize(
+                glm::cross(this->particles.at(i).propagate[2], Vec3{0.0f, 1.0f, 0.0f}));
     }
 
     // initialize mesh vertices
@@ -162,45 +172,64 @@ void WaterSurface::WorldToLocalPositions() {
 void WaterSurface::IterateWaveParticles() {
     std::cout << this->particles.size() << std::endl;
     std::vector<WaveParticle> new_particles;
-    for (auto & particle : this->particles){
-        float propagate_dist = glm::length(particle.position - particle.original_position);
+#pragma omp parallel for
+    for (auto &particle: this->particles) {
+        float propagate_dist = particle.surviving_time * wave_speed;
         float distance = glm::radians(particle.dispersion_angle) * propagate_dist;
-        if (distance > 0.25 * particle.radius){
-            float prop = glm::cos(glm::radians(particle.dispersion_angle / 3));
-            float hori = glm::sin(glm::radians(particle.dispersion_angle / 3));
+        if (distance > 0.5 * particle.radius) {
             WaveParticle temp[3];
-            for (auto & i : temp){
-                i = particle;
-                i.amplitude = particle.amplitude / 3;
-                i.dispersion_angle = particle.dispersion_angle / 3;
+            for (int i = 0; i < 3; ++i) {
+                temp[i].amplitude = particle.amplitude / 3;
+                temp[i].dispersion_angle = particle.dispersion_angle / 3;
+                temp[i].radius = particle.radius;
+                temp[i].surviving_time = 0.0f;
+                temp[i].position[0] = particle.position[i];
+                temp[i].position[1] = particle.position[i];
+                temp[i].position[2] = particle.position[i];
+                float prop = glm::cos(glm::radians(temp[i].dispersion_angle / 3));
+                float hori = glm::sin(glm::radians(temp[i].dispersion_angle / 3));
+                Vec3 propagate_tmp = particle.propagate[i];
+                Vec3 horizon_tmp = particle.horizontal[i];
+                temp[i].propagate[0] = propagate_tmp;
+                temp[i].propagate[1] = prop * propagate_tmp + hori * horizon_tmp;
+                temp[i].propagate[2] = prop * propagate_tmp - hori * horizon_tmp;
+                temp[i].horizontal[0] = horizon_tmp;
+                temp[i].horizontal[1] = glm::normalize(glm::cross(temp[i].propagate[1], Vec3{0.0f, 1.0f, 0.0f}));
+                temp[i].horizontal[2] = glm::normalize(glm::cross(temp[i].propagate[2], Vec3{0.0f, 1.0f, 0.0f}));
+                new_particles.push_back(temp[i]);
             }
-            temp[0].position = particle.original_position + propagate_dist * prop * particle.propagate + propagate_dist * hori * particle.horizontal;
-            temp[2].position = particle.original_position + propagate_dist * prop * particle.propagate - propagate_dist * hori * particle.horizontal;
-            for (auto & i : temp){
-                i.original_position = i.position;
-                i.propagate = glm::normalize(i.position - particle.original_position);
-                new_particles.push_back(i);
-            }
-        }
-        else if(particle.amplitude > 0.01f){
+        } else if (particle.amplitude > 1e-3) {
             new_particles.push_back(particle);
         }
     }
     this->particles = new_particles;
-    for (auto & particle : this->particles) {
-        particle.position += wave_speed * WaterSurface::fixed_delta_time * particle.propagate;
-        if(reflect){
-            if (particle.position.x > 0.5f * this->vertex_sizes.x * dx_local){
-                particle.propagate = glm::reflect(particle.propagate, Vec3(-1, 0, 0));
-            }
-            if (particle.position.x < -0.5f * this->vertex_sizes.x * dx_local){
-                particle.propagate = glm::reflect(particle.propagate, Vec3(1, 0, 0));
-            }
-            if (particle.position.z > 0.5f * this->vertex_sizes.y * dx_local){
-                particle.propagate = glm::reflect(particle.propagate, Vec3(0, 0, -1));
-            }
-            if (particle.position.z < -0.5f * this->vertex_sizes.y * dx_local){
-                particle.propagate = glm::reflect(particle.propagate, Vec3(0, 0, 1));
+#pragma omp parallel for
+    for (auto &particle: this->particles) {
+        particle.surviving_time +=
+                WaterSurface::fixed_delta_time * WaterSurface::simulation_steps_per_fixed_update_time;
+        particle.position[0] +=
+                wave_speed * WaterSurface::fixed_delta_time * WaterSurface::simulation_steps_per_fixed_update_time *
+                particle.propagate[0];
+        particle.position[1] +=
+                wave_speed * WaterSurface::fixed_delta_time * WaterSurface::simulation_steps_per_fixed_update_time *
+                particle.propagate[1];
+        particle.position[2] +=
+                wave_speed * WaterSurface::fixed_delta_time * WaterSurface::simulation_steps_per_fixed_update_time *
+                particle.propagate[2];
+        if (reflect) {
+            for (int i = 0; i < 3; ++i) {
+                if (particle.position[i].x > 0.5f * this->vertex_sizes.x * dx_local) {
+                    particle.propagate[i] = glm::reflect(particle.propagate[i], Vec3(-1, 0, 0));
+                }
+                if (particle.position[i].x < -0.5f * this->vertex_sizes.x * dx_local) {
+                    particle.propagate[i] = glm::reflect(particle.propagate[i], Vec3(1, 0, 0));
+                }
+                if (particle.position[i].z > 0.5f * this->vertex_sizes.y * dx_local) {
+                    particle.propagate[i] = glm::reflect(particle.propagate[i], Vec3(0, 0, -1));
+                }
+                if (particle.position[i].z < -0.5f * this->vertex_sizes.y * dx_local) {
+                    particle.propagate[i] = glm::reflect(particle.propagate[i], Vec3(0, 0, 1));
+                }
             }
         }
     }
@@ -223,15 +252,18 @@ void WaterSurface::RenderHeightFields() {
     for (auto &water_vertice: this->water_vertices) {
         Vec2 x_pos = {water_vertice.x, water_vertice.z};
         for (auto &particle: this->particles) {
-            Vec2 pos = {particle.position.x, particle.position.z};
+            Vec2 pos = {particle.position[0].x, particle.position[0].z};
             float length = glm::length(x_pos - pos);
-            float longitude = glm::dot(particle.propagate, {(x_pos - pos).x, 0, (x_pos - pos).y});
+            if (length > particle.radius) {
+                continue;
+            }
+            float longitude = glm::dot(particle.propagate[0], {(x_pos - pos).x, 0, (x_pos - pos).y});
             float a_i = particle.amplitude / 2;
             float W_i = glm::cos(pi * length / particle.radius) + 1;
             float B_i = rectangle_func(length / 2 / particle.radius);
             float D_i = a_i * W_i * B_i;
             Vec3 L_i = -glm::sin(pi * longitude / particle.radius) * rectangle_func(longitude / 2 / particle.radius) *
-                       particle.propagate;
+                       particle.propagate[0];
             Vec3 D_iL = D_i * L_i;
             water_vertice.y += D_i;
             water_vertice += D_iL;

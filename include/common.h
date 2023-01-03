@@ -38,6 +38,7 @@ class Camera;
 class Scene;
 // cloth
 class RectCloth;
+class WaterSurface;
 
 
 

@@ -11,7 +11,7 @@ int main() {
     constexpr int window_height = 1080;
 
     // cloth
-    constexpr UVec2 mass_dim = {400, 400};
+    constexpr UVec2 mass_dim = {100, 100};
     constexpr Float dx_local = Float(0.1);
     std::vector<IVec2> fixed_masses{{0,  -1},
                                     {-1, -1}};

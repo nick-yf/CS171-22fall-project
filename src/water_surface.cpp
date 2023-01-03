@@ -3,22 +3,26 @@
 //
 
 #include "water_surface.h"
+#include "object.h"
+#include "transform.h"
 
 WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::vector<MeshVertex>(sizes.x * sizes.y),
                                                                           std::vector<UVec3>(
                                                                                   (sizes.x - 1) * (sizes.y - 1) * 2),
                                                                           GL_STREAM_DRAW, GL_STATIC_DRAW,
-                                                                          true), limitation(limit),
+                                                                          true),
+                                                                     limitation(limit),
                                                                      local_or_world_pos(sizes.x * sizes.y),
-                                                                     vertex_sizes(sizes), dx_local(dx_local) {
+                                                                     vertex_sizes(sizes),
+                                                                     dx_local(dx_local) {
     float local_width = sizes.x * dx_local;
     float local_height = sizes.y * dx_local;
 #pragma omp parallel for
     for (int height = 0; height < sizes.y; ++height) {
         for (int width = 0; width < sizes.x; ++width) {
-            local_or_world_pos.at(this->GetIndex(width, height)) = Vec3(width * dx_local - 0.5f * local_width,
-                                                                        0,
-                                                                        height * dx_local - 0.5f * local_height);
+            local_or_world_pos.at(this->Get1DIndex(width, height)) = Vec3(width * dx_local - 0.5f * local_width,
+                                                                          0,
+                                                                          height * dx_local - 0.5f * local_height);
         }
     }
 
@@ -31,10 +35,10 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local) : Mesh(std::v
         for (int iw = 0; iw < sizes.x - 1; ++iw) {
             size_t i_indices = (size_t(ih) * size_t(sizes.x - 1) + size_t(iw)) << 1;
 
-            auto i = GetIndex(iw, ih);
-            auto r = GetIndex(iw + 1, ih);
-            auto u = GetIndex(iw, ih + 1);
-            auto ru = GetIndex(iw + 1, ih + 1);
+            auto i = Get1DIndex(iw, ih);
+            auto r = Get1DIndex(iw + 1, ih);
+            auto u = Get1DIndex(iw, ih + 1);
+            auto ru = Get1DIndex(iw + 1, ih + 1);
 
             indices[i_indices] = UVec3(i, r, u);
             indices[i_indices + 1] = UVec3(r, ru, u);
@@ -62,13 +66,13 @@ void WaterSurface::UpdateMeshVertices() {
             constexpr Float w_small = Float(0.125);
             constexpr Float w_large = Float(0.25);
 
-            auto i = GetIndex(iw, ih);
-            auto l = GetIndex(iw - 1, ih);
-            auto r = GetIndex(iw + 1, ih);
-            auto u = GetIndex(iw, ih + 1);
-            auto d = GetIndex(iw, ih - 1);
-            auto lu = GetIndex(iw - 1, ih + 1);
-            auto rd = GetIndex(iw + 1, ih - 1);
+            auto i = Get1DIndex(iw, ih);
+            auto l = Get1DIndex(iw - 1, ih);
+            auto r = Get1DIndex(iw + 1, ih);
+            auto u = Get1DIndex(iw, ih + 1);
+            auto d = Get1DIndex(iw, ih - 1);
+            auto lu = Get1DIndex(iw - 1, ih + 1);
+            auto rd = Get1DIndex(iw + 1, ih - 1);
             auto &normal = vertices[i].normal;
 
             normal = {0, 0, 0};
@@ -98,10 +102,61 @@ void WaterSurface::UpdateMeshVertices() {
     glBindVertexArray(0);
 }
 
-size_t WaterSurface::GetIndex(int width, int height) const {
+size_t WaterSurface::Get1DIndex(int width, int height) const {
     return size_t(height) * size_t(this->vertex_sizes.x) + size_t(width);
 }
 
 void WaterSurface::FixedUpdate() {
+    this->Simulate(simulation_steps_per_fixed_update_time);
     this->UpdateMeshVertices();
+}
+
+void WaterSurface::Simulate(unsigned times) {
+    for (int i = 0; i < times; ++i) {
+        LocalToWorldPositions();
+        IterateWaveParticles();
+        ComputeObjectForces();
+        IterateObjects();
+        GenerateWaveParticles();
+        RenderHeightFields();
+        WorldToLocalPositions();
+    }
+}
+
+void WaterSurface::LocalToWorldPositions() {
+    auto matrix = this->object->transform->ModelMat();
+#pragma omp parallel for
+    for (Vec3 &local_or_world_po: this->local_or_world_pos) {
+        Vec4 tmp = matrix * Vec4(local_or_world_po, 1);
+        local_or_world_po = Vec3(tmp);
+    }
+}
+
+void WaterSurface::WorldToLocalPositions() {
+    auto matrix = this->object->transform->ModelMat();
+#pragma omp parallel for
+    for (Vec3 &local_or_world_po: this->local_or_world_pos) {
+        Vec4 tmp = glm::inverse(matrix) * Vec4(local_or_world_po, 1);
+        local_or_world_po = Vec3(tmp);
+    }
+}
+
+void WaterSurface::IterateWaveParticles() {
+
+}
+
+void WaterSurface::ComputeObjectForces() {
+
+}
+
+void WaterSurface::IterateObjects() {
+
+}
+
+void WaterSurface::GenerateWaveParticles() {
+
+}
+
+void WaterSurface::RenderHeightFields() {
+
 }

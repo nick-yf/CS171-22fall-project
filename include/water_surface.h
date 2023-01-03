@@ -27,27 +27,59 @@ private:
 
 class WaterSurface : public Mesh {
 public:
+
+    /// constructor
+
     WaterSurface(int limit, UVec2 sizes, float dx_local);
 
     WaterSurface(const WaterSurface &) = default;
 
     WaterSurface(WaterSurface &&) = default;
-    void FixedUpdate() override;
-private:
-    int limitation;
-    float dx_local;
-    UVec2 vertex_sizes;
-    std::vector<Vec3> local_or_world_pos;
-    void UpdateMeshVertices();
-    void local_to_world();
-    void IterateWaveParticle();
-    void ComputeObjectForces();
-    void IterateObjects();
-    void GenerateWavePartcles();
-    void world_to_local();
-    size_t GetIndex(int width, int height) const;
-//    WavePacket wave_packet;
 
+    WaterSurface &operator=(const WaterSurface &) = default;
+
+    WaterSurface &operator=(WaterSurface &&) = default;
+
+    virtual ~WaterSurface() override = default;
+
+    /// interfaces
+    void FixedUpdate() override;
+
+private:
+    static constexpr unsigned simulation_steps_per_fixed_update_time = 20;
+    static constexpr Float fixed_delta_time = Time::fixed_delta_time / Float(simulation_steps_per_fixed_update_time);
+
+    UVec2 vertex_sizes;
+    Float dx_local;
+    int limitation;
+
+    std::vector<bool> is_fixed_masses;
+    std::vector<Vec3> local_or_world_pos;
+    /// simulation pipeline
+
+    void LocalToWorldPositions();
+
+    void IterateWaveParticles();
+
+    void ComputeObjectForces();
+
+    void IterateObjects();
+
+    void GenerateWaveParticles();
+
+    void RenderHeightFields();
+
+    void WorldToLocalPositions();
+
+    void Simulate(unsigned num_steps);
+
+    /// rendering
+
+    void UpdateMeshVertices();
+
+    /// supporting methods
+
+    [[nodiscard]] size_t Get1DIndex(int iw, int ih) const;
 };
 
 #endif //CS171_HW5_WATER_SURFACE_H

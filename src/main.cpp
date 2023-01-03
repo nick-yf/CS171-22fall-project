@@ -68,7 +68,7 @@ int main() {
         scene.light_color = Vec3(1, 1, 1) * Float(1.125);
 
         // water
-        auto water = std::make_shared<WaterSurface>(10, mass_dim, dx_local);
+        auto water = std::make_shared<WaterSurface>(1, mass_dim, dx_local);
 
         // mesh primitives
         auto mesh_cube = std::make_shared<Mesh>(MeshPrimitiveType::cube);

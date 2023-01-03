@@ -49,12 +49,19 @@ private:
     static constexpr unsigned simulation_steps_per_fixed_update_time = 20;
     static constexpr Float fixed_delta_time = Time::fixed_delta_time / Float(simulation_steps_per_fixed_update_time);
 
-    UVec2 vertex_sizes;
     Float dx_local;
     int limitation;
 
-    std::vector<bool> is_fixed_masses;
-    std::vector<Vec3> local_or_world_pos;
+    UVec2 vertex_sizes;
+    std::vector<Vec3> original_positions;
+    std::vector<Vec3> water_vertices;
+
+    // particles attribute
+    float wave_speed = 0.1f;
+    std::vector<Vec3> particle_positions;
+    std::vector<float> amplitude;
+    std::vector<Vec3> propagate;
+    std::vector<Vec3> horizontal;
     /// simulation pipeline
 
     void LocalToWorldPositions();

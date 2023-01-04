@@ -80,6 +80,8 @@ private:
     std::vector<WaveParticle> particles;
     // other object
     float density;
+    float drag_coef;
+    float lift_coef;
     Sphere sphere;
 
     /// simulation pipeline

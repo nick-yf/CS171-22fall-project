@@ -30,15 +30,15 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_p
     original_positions = water_vertices;
 
     for (int i = 0; i < limit; ++i) {
-        Vec3 position_tmp = Vec3(- 0.5f * local_width, 0, - 0.5f * local_height);
+        Vec3 position_tmp = Vec3(0.25f * local_width, 0, 0.25f * local_height);
         Vec3 propagate_tmp = glm::normalize(
                 Vec3{1.0f,
                      0.0f,
                      1.0f});
         Vec3 horizon_tmp = glm::normalize(glm::cross(propagate_tmp, Vec3{0.0f, 1.0f, 0.0f}));
-        this->particles.at(i).radius = 1.0f;
-        this->particles.at(i).amplitude = 200.0f;
-        this->particles.at(i).dispersion_angle = 90;
+        this->particles.at(i).radius = 0.5f;
+        this->particles.at(i).amplitude = 5.0f;
+        this->particles.at(i).dispersion_angle = 360;
         this->particles.at(i).surviving_time = 0.0f;
         float prop = glm::cos(glm::radians(this->particles.at(i).dispersion_angle / 3));
         float hori = glm::sin(glm::radians(this->particles.at(i).dispersion_angle / 3));
@@ -77,11 +77,13 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_p
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(UVec3) * indices.size(), indices.data(), GL_STATIC_DRAW);
     glBindVertexArray(0);
 
-    sphere.velocity = {0,0,0};
+    sphere.velocity = {0, 0, 0};
     sphere.radius = 0.5f;
     sphere.center = other_mesh->object->transform->position;
     sphere.mesh = other_mesh;
     density = 4.0f;
+    drag_coef = 1.0f;
+    lift_coef = 1.0f;
 }
 
 void WaterSurface::UpdateMeshVertices() {
@@ -181,30 +183,32 @@ void WaterSurface::IterateWaveParticles() {
     for (auto &particle: this->particles) {
         float propagate_dist = particle.surviving_time * wave_speed;
         float distance = glm::radians(particle.dispersion_angle) * propagate_dist;
-        if (distance > 0.5 * particle.radius) {
-            WaveParticle temp[3];
-            for (int i = 0; i < 3; ++i) {
-                temp[i].amplitude = particle.amplitude / 3;
-                temp[i].dispersion_angle = particle.dispersion_angle / 3;
-                temp[i].radius = particle.radius;
-                temp[i].surviving_time = 0.0f;
-                temp[i].position[0] = particle.position[i];
-                temp[i].position[1] = particle.position[i];
-                temp[i].position[2] = particle.position[i];
-                float prop = glm::cos(glm::radians(temp[i].dispersion_angle / 3));
-                float hori = glm::sin(glm::radians(temp[i].dispersion_angle / 3));
-                Vec3 propagate_tmp = particle.propagate[i];
-                Vec3 horizon_tmp = particle.horizontal[i];
-                temp[i].propagate[0] = propagate_tmp;
-                temp[i].propagate[1] = prop * propagate_tmp + hori * horizon_tmp;
-                temp[i].propagate[2] = prop * propagate_tmp - hori * horizon_tmp;
-                temp[i].horizontal[0] = horizon_tmp;
-                temp[i].horizontal[1] = glm::normalize(glm::cross(temp[i].propagate[1], Vec3{0.0f, 1.0f, 0.0f}));
-                temp[i].horizontal[2] = glm::normalize(glm::cross(temp[i].propagate[2], Vec3{0.0f, 1.0f, 0.0f}));
-                new_particles.push_back(temp[i]);
+        if (particle.amplitude > 5e-4) {
+            if (distance > 0.5 * particle.radius) {
+                WaveParticle temp[3];
+                for (int i = 0; i < 3; ++i) {
+                    temp[i].amplitude = particle.amplitude / 3;
+                    temp[i].dispersion_angle = particle.dispersion_angle / 3;
+                    temp[i].radius = particle.radius;
+                    temp[i].surviving_time = 0.0f;
+                    temp[i].position[0] = particle.position[i];
+                    temp[i].position[1] = particle.position[i];
+                    temp[i].position[2] = particle.position[i];
+                    float prop = glm::cos(glm::radians(temp[i].dispersion_angle / 3));
+                    float hori = glm::sin(glm::radians(temp[i].dispersion_angle / 3));
+                    Vec3 propagate_tmp = particle.propagate[i];
+                    Vec3 horizon_tmp = particle.horizontal[i];
+                    temp[i].propagate[0] = propagate_tmp;
+                    temp[i].propagate[1] = prop * propagate_tmp + hori * horizon_tmp;
+                    temp[i].propagate[2] = prop * propagate_tmp - hori * horizon_tmp;
+                    temp[i].horizontal[0] = horizon_tmp;
+                    temp[i].horizontal[1] = glm::normalize(glm::cross(temp[i].propagate[1], Vec3{0.0f, 1.0f, 0.0f}));
+                    temp[i].horizontal[2] = glm::normalize(glm::cross(temp[i].propagate[2], Vec3{0.0f, 1.0f, 0.0f}));
+                    new_particles.push_back(temp[i]);
+                }
+            } else {
+                new_particles.push_back(particle);
             }
-        } else if (particle.amplitude > 1e-4) {
-            new_particles.push_back(particle);
         }
     }
     this->particles = new_particles;
@@ -245,7 +249,9 @@ void WaterSurface::ComputeObjectForces() {
     sphere.acceleration = -gravity;
     float height = object->transform->position.y;
     Vec2 x_pos = {sphere.center.x, sphere.center.z};
-    for(auto &particle: this->particles){
+    Vec3 local_velo = {sphere.velocity.x, 0, sphere.velocity.z};
+    Vec3 normal = {0, 0, 0};
+    for (auto &particle: this->particles) {
         Vec2 pos = {particle.position[0].x, particle.position[0].z};
         float length = glm::length(x_pos - pos);
         if (length > particle.radius) {
@@ -256,22 +262,52 @@ void WaterSurface::ComputeObjectForces() {
         float B_i = rectangle_func(length / 2 / particle.radius);
         float D_i = a_i * W_i * B_i;
         height += D_i;
+        local_velo -= particle.propagate[0];
     }
     float h = height - sphere.center.y + sphere.radius;
-    if(h > 1){
+    float area = 0;
+    if (h > 1) {
         h = 1;
+        area = pi * sphere.radius * sphere.radius;
     }
-    if (h < 0){
+    if (h < 0) {
         h = 0;
+        area = 0;
+    }
+    if (h > sphere.radius) {
+        float i = h - sphere.radius;
+        float another = glm::sqrt(sphere.radius * sphere.radius - i * i);
+        float cos = i / sphere.radius;
+        float degree = glm::acos(cos);
+        area += (2 * pi - 2 * degree) / (2 * pi) * pi * sphere.radius * sphere.radius;
+        area += i * another;
+    } else {
+        float i = sphere.radius - h;
+        float another = glm::sqrt(sphere.radius * sphere.radius - i * i);
+        float cos = i / sphere.radius;
+        float degree = glm::acos(cos);
+        area += (2 * degree) / (2 * pi) * pi * sphere.radius * sphere.radius;
+        area -= i * another;
     }
     float volume = pi * h * h * (sphere.radius - h / 3);
-    std::cout << "h: " << h << std::endl;
+    Vec3 f_drag = -0.5f * density * drag_coef * area * glm::length(local_velo) * local_velo;
+    Vec3 f_lift = -0.5f * density * lift_coef * area * glm::length(local_velo) *
+                  glm::cross(local_velo, glm::cross(normal, local_velo));
+    std::cout << f_drag.x << " " << f_drag.y << " " << f_drag.z << std::endl;
     sphere.acceleration += density * gravity * volume;
+    sphere.acceleration += f_drag;
+    sphere.acceleration += f_lift;
     sphere.velocity += sphere.acceleration * Time::fixed_delta_time;
 }
 
 void WaterSurface::IterateObjects() {
     Mat4 matrix = sphere.mesh->object->transform->ModelMat();
+    if (sphere.center.x - sphere.radius < -0.5f * this->vertex_sizes.x * dx_local || sphere.center.x + sphere.radius > 0.5f * this->vertex_sizes.x * dx_local){
+        sphere.velocity.x = 0.0f;
+    }
+    if (sphere.center.z - sphere.radius < -0.5f * this->vertex_sizes.y * dx_local || sphere.center.z + sphere.radius > 0.5f * this->vertex_sizes.y * dx_local){
+        sphere.velocity.z = 0.0f;
+    }
     sphere.center += Time::fixed_delta_time * sphere.velocity;
     for (auto &vertice: sphere.mesh->vertices) {
         Vec3 tmp = Vec3(matrix * Vec4(vertice.position, 1));

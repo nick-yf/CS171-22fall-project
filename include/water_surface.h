@@ -20,7 +20,10 @@ struct WaveParticle{
 
 struct Sphere{
     float radius;
+    float radius_on_surface;
+    float old_radius_on_surface;
     Vec3 center;
+    Vec3 old_center;
     Vec3 acceleration;
     Vec3 velocity;
     std::shared_ptr<Mesh> mesh;
@@ -78,6 +81,7 @@ private:
     bool reflect = true;
     float wave_speed = 1.0f;
     std::vector<WaveParticle> particles;
+    std::vector<Vec3> directions;
     // other object
     float density;
     float drag_coef;
@@ -111,6 +115,8 @@ private:
     [[nodiscard]] size_t Get1DIndex(int iw, int ih) const;
 
     float rectangle_func(float x);
+
+    WaveParticle create_particle(Vec3 position, Vec3 propagate, float dispersion_angle, float amplitude);
 };
 
 #endif //CS171_HW5_WATER_SURFACE_H

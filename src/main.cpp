@@ -67,32 +67,24 @@ int main() {
         scene.light_position = {0, 3, -10};
         scene.light_color = Vec3(1, 1, 1) * Float(1.125);
 
+        // objects
         // mesh primitives
-        auto mesh_cube = std::make_shared<Mesh>(MeshPrimitiveType::cube);
         auto mesh_sphere = std::make_shared<Mesh>(MeshPrimitiveType::sphere);
+        auto object_sphere = scene.AddObject(mesh_sphere,
+                                             Shader::shader_phong,
+                                             Transform(Vec3(0.0, -3.0, 0.0),
+                                                       Quat(1, 0, 0, 0),
+                                                       Vec3(1, 1, 1)));
+        object_sphere->color = {one, Float(0.75), zero};
 
         // water
-        auto water = std::make_shared<WaterSurface>(1, mass_dim, dx_local, mesh_cube);
-
-        // objects
+        auto water = std::make_shared<WaterSurface>(1, mass_dim, dx_local, mesh_sphere);
         auto object_water = scene.AddObject(water,
                                             Shader::shader_phong,
                                             Transform(Vec3(0, -3.0, 0),
                                                       Quat(1, 0, 0, 0),
                                                       Vec3(1, 1, 1)));
-        auto object_cube = scene.AddObject(mesh_cube,
-                                           Shader::shader_phong,
-                                           Transform(Vec3(-3.5, -1.5, 0.3),
-                                                     Quat(1, 0, 0, 0),
-                                                     Vec3(1, 1, 1)));
-        auto object_sphere = scene.AddObject(mesh_sphere,
-                                             Shader::shader_phong,
-                                             Transform(Vec3(0.0, -1.5, 0.0),
-                                                       Quat(1, 0, 0, 0),
-                                                       Vec3(1, 1, 1)));
         object_water->color = {zero, Float(0.25), one};
-        object_cube->color = {Float(0.75), one, zero};
-        object_sphere->color = {one, Float(0.75), zero};
 
         // loop until the user closes the window
         Input::Start(window);

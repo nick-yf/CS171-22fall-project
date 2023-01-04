@@ -18,6 +18,14 @@ struct WaveParticle{
     Vec3 horizontal[3];
 };
 
+struct Sphere{
+    float radius;
+    Vec3 center;
+    Vec3 acceleration;
+    Vec3 velocity;
+    std::shared_ptr<Mesh> mesh;
+};
+
 class WavePacket {
 public:
 private:
@@ -71,8 +79,8 @@ private:
     float wave_speed = 1.0f;
     std::vector<WaveParticle> particles;
     // other object
-    Vec3 velocity;
-    std::shared_ptr<Mesh> other_object;
+    float density;
+    Sphere sphere;
 
     /// simulation pipeline
 

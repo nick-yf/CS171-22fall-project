@@ -16,8 +16,7 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_p
         water_vertices(sizes.x * sizes.y),
         vertex_sizes(sizes),
         dx_local(dx_local),
-        particles(limit),
-        other_object(std::move(other_mesh)) {
+        particles(limit) {
     float local_width = sizes.x * dx_local;
     float local_height = sizes.y * dx_local;
 #pragma omp parallel for
@@ -31,15 +30,15 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_p
     original_positions = water_vertices;
 
     for (int i = 0; i < limit; ++i) {
-        Vec3 position_tmp = Vec3(0, 0, 0);
+        Vec3 position_tmp = Vec3(- 0.5f * local_width, 0, - 0.5f * local_height);
         Vec3 propagate_tmp = glm::normalize(
                 Vec3{1.0f,
                      0.0f,
                      1.0f});
         Vec3 horizon_tmp = glm::normalize(glm::cross(propagate_tmp, Vec3{0.0f, 1.0f, 0.0f}));
         this->particles.at(i).radius = 1.0f;
-        this->particles.at(i).amplitude = 2.0f;
-        this->particles.at(i).dispersion_angle = 360;
+        this->particles.at(i).amplitude = 200.0f;
+        this->particles.at(i).dispersion_angle = 90;
         this->particles.at(i).surviving_time = 0.0f;
         float prop = glm::cos(glm::radians(this->particles.at(i).dispersion_angle / 3));
         float hori = glm::sin(glm::radians(this->particles.at(i).dispersion_angle / 3));
@@ -77,6 +76,12 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_p
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(UVec3) * indices.size(), indices.data(), GL_STATIC_DRAW);
     glBindVertexArray(0);
+
+    sphere.velocity = {0,0,0};
+    sphere.radius = 0.5f;
+    sphere.center = other_mesh->object->transform->position;
+    sphere.mesh = other_mesh;
+    density = 4.0f;
 }
 
 void WaterSurface::UpdateMeshVertices() {
@@ -237,20 +242,46 @@ void WaterSurface::IterateWaveParticles() {
 }
 
 void WaterSurface::ComputeObjectForces() {
-    velocity = -gravity;
+    sphere.acceleration = -gravity;
+    float height = object->transform->position.y;
+    Vec2 x_pos = {sphere.center.x, sphere.center.z};
+    for(auto &particle: this->particles){
+        Vec2 pos = {particle.position[0].x, particle.position[0].z};
+        float length = glm::length(x_pos - pos);
+        if (length > particle.radius) {
+            continue;
+        }
+        float a_i = particle.amplitude / 2;
+        float W_i = glm::cos(pi * length / particle.radius) + 1;
+        float B_i = rectangle_func(length / 2 / particle.radius);
+        float D_i = a_i * W_i * B_i;
+        height += D_i;
+    }
+    float h = height - sphere.center.y + sphere.radius;
+    if(h > 1){
+        h = 1;
+    }
+    if (h < 0){
+        h = 0;
+    }
+    float volume = pi * h * h * (sphere.radius - h / 3);
+    std::cout << "h: " << h << std::endl;
+    sphere.acceleration += density * gravity * volume;
+    sphere.velocity += sphere.acceleration * Time::fixed_delta_time;
 }
 
 void WaterSurface::IterateObjects() {
-    Mat4 matrix = other_object->object->transform->ModelMat();
-    for (auto &vertice: other_object->vertices) {
+    Mat4 matrix = sphere.mesh->object->transform->ModelMat();
+    sphere.center += Time::fixed_delta_time * sphere.velocity;
+    for (auto &vertice: sphere.mesh->vertices) {
         Vec3 tmp = Vec3(matrix * Vec4(vertice.position, 1));
-        tmp += Time::fixed_delta_time * velocity;
+        tmp += Time::fixed_delta_time * sphere.velocity;
         vertice.position = Vec3(glm::inverse(matrix) * Vec4(tmp, 1));
     }
-    glBindVertexArray(other_object->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, other_object->vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(MeshVertex) * other_object->vertices.size(), other_object->vertices.data(),
-                 other_object->buffer_data_usage_vbo);
+    glBindVertexArray(sphere.mesh->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, sphere.mesh->vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(MeshVertex) * sphere.mesh->vertices.size(), sphere.mesh->vertices.data(),
+                 sphere.mesh->buffer_data_usage_vbo);
     glBindVertexArray(0);
 }
 

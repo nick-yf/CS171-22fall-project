@@ -94,7 +94,7 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_p
         directions.emplace_back(glm::cos(glm::radians(i * degree)), 0, glm::sin(glm::radians(i * degree)));
     }
 
-    timer = 100;
+    timer = 250;
     u = std::uniform_real_distribution<float>(-0.4f*local_width, 0.4f*local_width);
 }
 
@@ -195,8 +195,8 @@ void WaterSurface::IterateWaveParticles() {
     for (auto &particle: this->particles) {
         float propagate_dist = particle.surviving_time * wave_speed;
         float distance = glm::radians(particle.dispersion_angle) * propagate_dist;
-        if (glm::abs(particle.amplitude) > 1e-3) {
-            if (distance > 0.5 * particle.radius) {
+        if (glm::abs(particle.amplitude) > 5e-4) {
+            if (distance > 0.2 * particle.radius) {
                 WaveParticle temp[3];
                 for (int i = 0; i < 3; ++i) {
 //                    temp[i].amplitude = particle.amplitude / 3;
@@ -243,19 +243,20 @@ void WaterSurface::IterateWaveParticles() {
                 particle.propagate[2];
 //        std::cout << particle.position[0].x << " " << particle.position[0].y << " "<< particle.position[0].z << "\n";
         if (reflect) {
-//            if(glm::length(particle.position[0] - center_of_sphere) < 0.6){
-//                Vec3 normal = glm::normalize(particle.position[0] - center_of_sphere);
-//                for (int i = 0; i < 3; ++i){
-//                    if(glm::dot(glm::normalize(particle.propagate[i]), normal) < -0.99){
-//                        particle.propagate[i] = -particle.propagate[i];
-//                        particle.horizontal[i] = -particle.horizontal[i];
-//                    }
-//                    else{
-//                        particle.propagate[i] = glm::reflect(particle.propagate[i], normal);
-//                        particle.horizontal[i] = glm::reflect(particle.horizontal[i], normal);
-//                    }
-//                }
-//            }
+            if(glm::length(particle.position[0] - center_of_sphere) < 0.45){
+                Vec3 normal = glm::normalize(particle.position[0] - center_of_sphere);
+                for (int i = 0; i < 3; ++i){
+                    if(glm::dot(glm::normalize(particle.propagate[i]), normal) < -0.99){
+                        particle.propagate[i] = -particle.propagate[i];
+                        particle.horizontal[i] = -particle.horizontal[i];
+                    }
+                    else{
+                        particle.propagate[i] = glm::reflect(particle.propagate[i], normal);
+                        particle.horizontal[i] = glm::reflect(particle.horizontal[i], normal);
+                    }
+                }
+
+            }
             for (int i = 0; i < 3; ++i) {
                 if (particle.position[i].x > 0.5f * this->vertex_sizes.x * dx_local) {
                     particle.propagate[i] = glm::reflect(particle.propagate[i], Vec3(-1, 0, 0));
@@ -282,6 +283,7 @@ void WaterSurface::ComputeObjectForces() {
     sphere.acceleration = -gravity;
     float height = object->transform->position.y;
     Vec2 x_pos = {sphere.center.x, sphere.center.z};
+    Vec3 center_of_sphere = {sphere.center.x, 0, sphere.center.z};
     Vec3 local_velo = {sphere.velocity.x, 0, sphere.velocity.z};
     Vec3 normal = {0, 0, 0};
     for (auto &particle: this->particles) {
@@ -381,7 +383,7 @@ void WaterSurface::GenerateWaveParticles() {
         Vec3 dir = Vec3(1, 0, 0);
         WaveParticle new_particle = create_particle(pos, dir, 360, 5.0f);
         this->particles.push_back(new_particle);
-        timer = 100;
+        timer = 250;
     }
     timer--;
 }

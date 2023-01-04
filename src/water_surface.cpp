@@ -78,7 +78,7 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_p
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(UVec3) * indices.size(), indices.data(), GL_STATIC_DRAW);
     glBindVertexArray(0);
 
-    sphere.velocity = {0, 0, 0};
+    sphere.velocity = {10, 0, 0};
     sphere.radius = 0.5f;
     sphere.radius_on_surface = 0.5f;
     sphere.old_radius_on_surface = 0.5f;
@@ -255,7 +255,6 @@ void WaterSurface::IterateWaveParticles() {
                         particle.horizontal[i] = glm::reflect(particle.horizontal[i], normal);
                     }
                 }
-
             }
             for (int i = 0; i < 3; ++i) {
                 if (particle.position[i].x > 0.5f * this->vertex_sizes.x * dx_local) {
@@ -369,10 +368,10 @@ void WaterSurface::GenerateWaveParticles() {
     for (auto direction: directions){
         Vec3 current_pos = current_center + sphere.radius_on_surface * direction;
         Vec3 old_pos = old_center + sphere.old_radius_on_surface * direction;
-        float amplitude = 0.5f * glm::length(current_pos - old_pos);
-        if (glm::dot(current_pos - old_pos, direction) < 0) {
-            amplitude = -amplitude;
-        }
+        float amplitude = 0.5f * glm::dot(current_pos - old_pos, direction);
+//        if (glm::dot(current_pos - old_pos, direction) < 0) {
+//            amplitude = -amplitude;
+//        }
         WaveParticle new_particle = create_particle(current_pos, direction, 180, amplitude);
         this->particles.push_back(new_particle);
     }

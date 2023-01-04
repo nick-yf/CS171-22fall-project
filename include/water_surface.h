@@ -26,6 +26,7 @@ struct Sphere{
     Vec3 old_center;
     Vec3 acceleration;
     Vec3 velocity;
+    Vec3 local_velo;
     std::shared_ptr<Mesh> mesh;
 };
 

@@ -78,6 +78,9 @@ private:
     std::vector<Vec3> water_vertices;
 
     // particles attribute
+    int timer;
+    std::default_random_engine e;
+    std::uniform_real_distribution<float> u;
     bool reflect = true;
     float wave_speed = 1.0f;
     std::vector<WaveParticle> particles;

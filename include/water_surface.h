@@ -82,6 +82,8 @@ private:
     int timer;
     std::default_random_engine e;
     std::uniform_real_distribution<float> u;
+    Vec3 temp_particle_position;
+    Vec3 temp_particle_direction;
     bool reflect = true;
     float wave_speed = 1.0f;
     std::vector<WaveParticle> particles;

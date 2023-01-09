@@ -29,33 +29,6 @@ WaterSurface::WaterSurface(int limit, UVec2 sizes, float dx_local, std::shared_p
     }
     original_positions = water_vertices;
 
-//    for (int i = 0; i < limit; ++i) {
-//        Vec3 position_tmp = Vec3(0.25f * local_width, 0, 0.25f * local_height);
-//        Vec3 propagate_tmp = glm::normalize(
-//                Vec3{-1.0f,
-//                     0.0f,
-//                     -1.0f});
-//        Vec3 horizon_tmp = glm::normalize(glm::cross(propagate_tmp, Vec3{0.0f, 1.0f, 0.0f}));
-//        this->particles.at(i) = create_particle(position_tmp, propagate_tmp, 360, 5.0f);
-//        this->particles.at(i).radius = 0.5f;
-//        this->particles.at(i).amplitude = 2.0f;
-//        this->particles.at(i).dispersion_angle = 360;
-//        this->particles.at(i).surviving_time = 0.0f;
-//        float prop = glm::cos(glm::radians(this->particles.at(i).dispersion_angle / 3));
-//        float hori = glm::sin(glm::radians(this->particles.at(i).dispersion_angle / 3));
-//        this->particles.at(i).position[0] = position_tmp;
-//        this->particles.at(i).position[1] = position_tmp;
-//        this->particles.at(i).position[2] = position_tmp;
-//        this->particles.at(i).propagate[0] = propagate_tmp;
-//        this->particles.at(i).propagate[1] = prop * propagate_tmp + hori * horizon_tmp;
-//        this->particles.at(i).propagate[2] = prop * propagate_tmp - hori * horizon_tmp;
-//        this->particles.at(i).horizontal[0] = horizon_tmp;
-//        this->particles.at(i).horizontal[1] = glm::normalize(
-//                glm::cross(this->particles.at(i).propagate[1], Vec3{0.0f, 1.0f, 0.0f}));
-//        this->particles.at(i).horizontal[2] = glm::normalize(
-//                glm::cross(this->particles.at(i).propagate[2], Vec3{0.0f, 1.0f, 0.0f}));
-//    }
-
     // initialize mesh vertices
     UpdateMeshVertices();
 
@@ -109,7 +82,7 @@ void WaterSurface::UpdateMeshVertices() {
                                          vertices[v3].position - vertices[v1].position));
     };
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (int ih = 0; ih < this->vertex_sizes.y; ++ih)
         for (int iw = 0; iw < this->vertex_sizes.x; ++iw) {
             constexpr Float w_small = Float(0.125);
@@ -172,7 +145,7 @@ void WaterSurface::Simulate(unsigned times) {
 
 void WaterSurface::LocalToWorldPositions() {
     auto matrix = this->object->transform->ModelMat();
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < this->original_positions.size(); ++i) {
         Vec4 tmp = matrix * Vec4(this->original_positions.at(i), 1);
         this->water_vertices.at(i) = Vec3(tmp);
@@ -181,7 +154,7 @@ void WaterSurface::LocalToWorldPositions() {
 
 void WaterSurface::WorldToLocalPositions() {
     auto matrix = this->object->transform->ModelMat();
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (Vec3 &water_vertex: this->water_vertices) {
         Vec4 tmp = glm::inverse(matrix) * Vec4(water_vertex, 1);
         water_vertex = Vec3(tmp);
@@ -191,7 +164,7 @@ void WaterSurface::WorldToLocalPositions() {
 void WaterSurface::IterateWaveParticles() {
     std::cout << this->particles.size() << std::endl;
     std::vector<WaveParticle> new_particles;
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (auto &particle: this->particles) {
         float propagate_dist = particle.surviving_time * wave_speed;
         float distance = glm::radians(particle.dispersion_angle) * propagate_dist;
@@ -211,7 +184,7 @@ void WaterSurface::IterateWaveParticles() {
     this->particles = new_particles;
     Vec3 center_of_sphere = {sphere.center.x, 0, sphere.center.z};
     sphere.local_velo = {sphere.velocity.x, 0, sphere.velocity.z};
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (auto &particle: this->particles) {
         particle.amplitude *= glm::exp(-(1 + 100 * glm::max(particles.size() / 1000.0f - 1, 0.0f) *
                                              glm::max(particles.size() / 1000.0f - 1, 0.0f)) * Time::fixed_delta_time);
@@ -354,7 +327,7 @@ void WaterSurface::IterateObjects() {
 void WaterSurface::GenerateWaveParticles() {
     Vec3 current_center = {sphere.center.x, 0, sphere.center.z};
     Vec3 old_center = {sphere.old_center.x, 0, sphere.old_center.z};
-    std::cout << sphere.radius_on_surface << " " << sphere.old_radius_on_surface << '\n';
+//    std::cout << sphere.radius_on_surface << " " << sphere.old_radius_on_surface << '\n';
     for (auto direction: directions) {
         Vec3 current_pos = current_center + sphere.radius_on_surface * direction;
         Vec3 old_pos = old_center + sphere.old_radius_on_surface * direction;
@@ -372,14 +345,14 @@ void WaterSurface::GenerateWaveParticles() {
     } else if (timer == 0) {
         WaveParticle new_particle = create_particle(temp_particle_position, temp_particle_direction, 360, -5.0f);
         this->particles.push_back(new_particle);
-        timer = 250;
+        timer = 50;
     }
     timer--;
     // TODO: rain drop change
 }
 
 void WaterSurface::RenderHeightFields() {
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
     for (auto &water_vertice: this->water_vertices) {
         Vec2 x_pos = {water_vertice.x, water_vertice.z};
         for (auto &particle: this->particles) {

@@ -364,7 +364,7 @@ void WaterSurface::GenerateWaveParticles() {
     }
     sphere.old_radius_on_surface = sphere.radius_on_surface;
     sphere.old_center = sphere.center;
-    if (timer == 10) {
+    if (timer == 20) {
         temp_particle_position = Vec3(u(e), 0, u(e));
         temp_particle_direction = Vec3(1, 0, 0);
         WaveParticle new_particle = create_particle(temp_particle_position, temp_particle_direction, 360, 5.0f);
@@ -403,8 +403,11 @@ void WaterSurface::RenderHeightFields() {
 }
 
 float WaterSurface::rectangle_func(float x) {
-    if (x >= -0.5f && x < 0.5f) {
+    float x_abs = abs(x);
+    if (x_abs >= 0.5 -1e4 && x_abs < 0.5 + 1e4)
         return 0.5f;
+    if (x_abs < 0.5f) {
+        return 1.0f;
     } else {
         return 0.0f;
     }

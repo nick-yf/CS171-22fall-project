@@ -71,7 +71,7 @@ And more details will also be introduced in the following parts.
 \section{Implementation Details}
 \subsection{Water Wave Simulation}
 This part will introduce how we implement the wave particles algorithm to solve the wave equation and simulate the water wave.
-The core algorithm of our project was implemented in file 'water-surface.h' and 'water-surface.cpp', which include a class called \verb|WaterSurface| and a struct called \verb|WaterParticle|.
+The core algorithm of our project was implemented in files 'water-surface.h' and 'water-surface.cpp', which include a class called \verb|WaterSurface| and a struct called \verb|WaterParticle|.
 
 For \verb|WaterSurface|, it has the member variables that store all water particles, and other variables that define the coefficients that can represent the characteristics of a water surface, like the water density, wave speed, lift coefficient and drag coefficient, the details of these coefficients will be introduced later.
 The member functions of \verb|WaterSurface| include the local-world transformation function and the simulation function, the most important functions are the functions in the simulation pipeline, each time step, the main procedures including:
@@ -183,24 +183,25 @@ After calculating the vertical and horizontal components, the positions of water
 \label{fig:1}
 \end{figure}
 \subsection{Fluid object interaction}
-In our project, we implement the water-sphere interaction. For sphere, we have a struct \verb|Sphere| that store the necessary information for simulation, including: center position, radius, radius of the water plane cutting area, acceleration, velocity and local velocity (the sphere velocity in water coordinate that suppose the water is static). 
-The interaction cover two parts, fluid to sphere interaction and sphere to fluid interaction. The fluid to sphere interaction is implemented in function \verb|ComputeObjectForces| and \verb|IterateObject| and the sphere to fluid interaction including the reflection and some wave particle generations.
+In our project, we implement the water-sphere interaction. For sphere, we have a struct \verb|Sphere| that store the necessary information for simulation, including: center position, radius, the radius of the water plane cutting area, acceleration, velocity and local velocity (the sphere velocity in water coordinate that supposes the water is static). 
+The interaction covers two parts, the fluid to sphere interaction and the sphere to fluid interaction. 
+The fluid to sphere interaction is implemented in function \verb|ComputeObjectForces| and \verb|IterateObject| and the sphere to fluid interaction includes the reflection and some wave particle generations.
 \subsubsection{Compute Object Forces}
- The fluid to sphere force including three component: buoyancy force, drag force and lift force.
+ The fluid to sphere force includes three component: buoyancy force, drag force and lift force.
  The static component of the force is buoyancy:
  \begin{equation*}
    \begin{aligned}
         \mathbf{F}_{buoyancy} = -\mathbf{g}\rho V_{displaced}
     \end{aligned}
 \end{equation*}
-where $\mathbf{g}$ is the gravitational acceleration, $\rho$ is the density of the fluid, and $V_{displaced}$ is the volume of the sphere inside the fluid that can be formulated by equation:
+where $\mathbf{g}$ is the gravitational acceleration, $\rho$ is the density of the fluid, and $V_{displaced}$ is the volume of the sphere inside the fluid that can be formulated by the equation:
  \begin{equation*}
    \begin{aligned}
         V_{displaced} = \pi h^2\left(R-\frac{h}{3}\right)
     \end{aligned}
 \end{equation*}
 where $R$ is the sphere radius and $h$ is the depth inside.
-The dynamic forces are computed over the interface of fluid and object and they are based on the relative motion of the object surface to the fluid. One component of dynamic force is \textit{drag force} that in the opposite direction of relative motion. The other component perpendicular to the relative motion is \textit{lift force}. (See Fig \ref{fig:2})
+The dynamic forces are computed over the interface of fluid and object and they are based on the relative motion of the object's surface to the fluid. One component of dynamic force is \textit{drag force} that is in the opposite direction of relative motion. The other component perpendicular to the relative motion is \textit{lift force}. (See Fig \ref{fig:2})
 \begin{figure}[!htb]
   \centering
   \includegraphics[width=0.3\textwidth]{image/force.png}
@@ -219,23 +220,31 @@ where $C_D$ and $C_L$ are the drag and lift coefficients, $\mathbf{U}$ is the lo
 For the local velocity $\mathbf{U}$, it can also be seen as the relative velocity and it is updated in the part of iterating wave particles. 
 As in our implementation, the propagation direction of the water wave particle will change when it bumps into the surfaces of the object, but the original direction of the propagation of the sphere is needed to calculate the local velocity $\mathbf{U}$. 
 So for each water wave particle that bumps into the surface of the object, before the change of its propagation direction, the local velocity of the object is subtracted with the propagation velocity of the particle. 
-Because the local velocity $\mathbf{U}$ record the velocity of the object in the water coordinate that the water surface is seen as static. 
+Because the local velocity $\mathbf{U}$ records the velocity of the object in the water coordinate that the water surface is seen as static. 
 
 For the effective area of the surface $A$, only the area of the surface that is inside the fluid will be considered. 
-And only the area of the surface that is not only perpendicular to the water surface but also the perpendicular to the local velocity of the object will be considered as the effective area $A$ of the surface. 
+And only the area of the surface that is not only perpendicular to the water surface but also perpendicular to the local velocity of the object will be considered as the effective area $A$ of the surface. 
 
-For sphere, the effective area depends on the sphere radius $R$ and the relative depth $h$. 
+For the sphere, the effective area depends on the sphere radius $R$ and the relative depth $h$. 
 It is needed for the object to generate wave particles caused by the vertical movement of the object. 
-When the object is moving vertically due to the effect of the buoyancy force and the gravity, the object will also creates water wave particles. 
+When the object is moving vertically due to the effect of the buoyancy force and the gravity, the object will also create water wave particles. 
 Such kinds of water wave particles are implemented following the instructions in the work~\cite{yuksel2007wave}. 
-However, the effects of this kinds of water wave particles are too small that it can merely be seen.  
+However, the effects of these kinds of water wave particles are too small that they can merely be seen.  
 After calculating the three components, the combined acceleration can be derived. Then the velocity can be updated by $v_{new} = v_{old} + a_{all} \Delta t$. 
 \subsubsection{Iterate Objects}
-This function will handle the sphere-boundary collision and update the sphere position. To handle the collision event, the component of the sphere velocity that parallel to the boundary normal will be set to $0$ when the collision happen.
+This function will handle the sphere-boundary collision and update the sphere position. To handle the collision event, the component of the sphere velocity that is parallel to the boundary normal will be set to $0$ when the collision happens.
 Then the sphere position will be updated by $p_{new} = p_{old} + v_{sphere} \Delta t$.
 \subsubsection{Sphere to fluid interaction}
-The sphere to fluid interaction including the reflection when the water wave pass through the sphere and the water particle generation near the sphere. The reflection in sphere surface is handled in \verb|IterateWaveParticles|, the idea is similar to the wave-boundary reflection, the only difference is that the reflection normal is derived by formula $\mathbf{N}_{ref} = normalize(p_{particle} - p_{center})$ where the $p_{particle}$ is the particle position and $p_{center}$ is the sphere center position. After calculating the reflection normal, we can get the new direction by calling \verb|glm::reflect|.
-To achieve the sinking and floating effect of the sphere on the water surface, there will be particle generations near the sphere. The full $2\pi$ angle is divided to eight directions as the propagation directions of the new particles, the current position of the eight particles can be derived from $p_{center}$ and the radius on surface, and their amplitude is $a = \frac{1}{2} (d_{prop}\cdot (p_{current}-p_{old})$ where $d_{prop}$ is the one of eight propagation direction and $p_{current},p_{old}$ are the current and old position intersect with water surface in this propagation. The dispersion angle of the generated particles is set to $\pi$ to simulate the realistic reflection results.
+The sphere to fluid interaction includes the reflection when the water wave pass through the sphere and the water particle generation near the sphere. The reflection in sphere surface is handled in \verb|IterateWaveParticles|, the idea is similar to the wave-boundary reflection, the only difference is that the reflection normal is derived by formula $\mathbf{N}_{ref} = normalize(p_{particle} - p_{center})$ where the $p_{particle}$ is the particle position and $p_{center}$ is the sphere center position. After calculating the reflection normal, we can get the new direction by calling \verb|glm::reflect|.
+There will be particle generations near the sphere, in order to not only achieve the sinking and floating effect of the sphere on the water surface but also achieve the water waves that are generated by the motion of the object or the sphere. 
+The full $2\pi$ angle is divided into eight directions as the propagation directions of the new particles, the current position of the eight particles can be derived from $p_{center}$ and the radius on surface, and their amplitude is $a = \frac{1}{2} (d_{prop}\cdot (p_{current}-p_{old})$ where $d_{prop}$ is the one of eight propagation direction and $p_{current},p_{old}$ are the current and old position intersect with water surface in this propagation. 
+
+By using this kind of amplitude, the wave particles with negative amplitude can also be handled. 
+Also when the object or the sphere moves around the water surface, for the water area that is facing the movement of the object, wave particles with positive amplitude can be generated and for the water area that is in the opposite direction of the object movement, wave particles with negative amplitude can be generated. 
+What's more, the more parallel of direction between the water surface to the object and the movement direction of the object, the wave particles with higher absolute amplitude will be generated. 
+In other words, for the water surface that is perpendicular to the movement of the object or the sphere, wave particles with small amplitude will be generated which can merely be seen. 
+
+The dispersion angle of the generated particles is set to $\pi$ to simulate the realistic reflection results.
 \section{Result}
 \begin{figure}[H]
     \centering
@@ -265,10 +274,10 @@ To achieve the sinking and floating effect of the sphere on the water surface, t
 \begin{figure}[H]
 	\centering
     \subfigure[]{
-		\includegraphics[scale=0.1]{image/Suppliment 1.png}
+		\includegraphics[scale=0.06]{image/Suppliment 1.png}
     }
     \subfigure[]{
-		\includegraphics[scale=0.1]{image/Suppliment 2.png}
+		\includegraphics[scale=0.06]{image/Suppliment 2.png}
     }
 	\caption{More supplementary results.}
 \end{figure}

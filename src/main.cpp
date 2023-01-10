@@ -36,7 +36,7 @@ int main() {
         }
 
         // create a windowed mode window and its OpenGL context
-        window = glfwCreateWindow(window_width, window_height, "CS171 HW5: Cloth Simulation", NULL, NULL);
+        window = glfwCreateWindow(window_width, window_height, "CS171 Final Project: Water Wave Simulation", NULL, NULL);
         if (!window) {
             glfwTerminate();
             return -1;

@@ -162,7 +162,7 @@ void WaterSurface::WorldToLocalPositions() {
 }
 
 void WaterSurface::IterateWaveParticles() {
-    std::cout << this->particles.size() << std::endl;
+//    std::cout << this->particles.size() << std::endl;
     std::vector<WaveParticle> new_particles;
 #pragma omp parallel for schedule(dynamic)
     for (auto &particle: this->particles) {
